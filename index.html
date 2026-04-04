@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liste des griefs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0F2544;--navy-light:#1B3F6E;--cream:#F7F5F0;--white:#FFFFFF;--border:#E8E4DC;--text:#1A1A1A;--muted:#6B6860;--accent:#C9A84C}
+body{font-family:'Inter',sans-serif;background:var(--cream);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased}
+
+/* ── HEADER ── */
+.header{background:var(--navy);padding:0 48px;display:flex;align-items:center;justify-content:space-between;height:64px}
+.header-logo{display:flex;align-items:center;gap:12px}
+.header-logo-mark{width:28px;height:28px;background:var(--accent);border-radius:4px;display:flex;align-items:center;justify-content:center}
+.header-logo-mark svg{display:block}
+.header-title{font-size:14px;font-weight:500;color:rgba(255,255,255,0.9);letter-spacing:.02em}
+.header-tag{font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:.1em;text-transform:uppercase}
+
+/* ── APP VIEW ── */
+.app{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 64px)}
+.app-left{background:var(--navy);padding:56px 48px;display:flex;flex-direction:column;gap:32px}
+.app-right{padding:56px 48px;display:flex;flex-direction:column;gap:24px}
+
+.step-label{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:10px}
+.field-label{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,0.5);display:block;margin-bottom:8px}
+.field-label-dark{font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}
+
+input[type=password]{width:100%;font-family:'Inter',sans-serif;font-size:14px;padding:11px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;outline:none;transition:border-color .2s;letter-spacing:.05em}
+input[type=password]:focus{border-color:var(--accent)}
+input[type=password]::placeholder{color:rgba(255,255,255,0.2)}
+
+.hint{font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;line-height:1.5}
+
+.left-divider{border:none;border-top:1px solid rgba(255,255,255,0.08)}
+
+.intro-heading{font-family:'EB Garamond',Georgia,serif;font-size:32px;font-weight:400;color:#fff;line-height:1.25;margin-bottom:12px}
+.intro-sub{font-size:13px;color:rgba(255,255,255,0.45);line-height:1.6}
+
+textarea{width:100%;font-family:'Inter',sans-serif;font-size:14px;line-height:1.7;padding:14px 16px;background:var(--white);border:1px solid var(--border);border-radius:10px;color:var(--text);resize:vertical;outline:none;transition:border-color .2s;min-height:220px}
+textarea:focus{border-color:var(--navy-light)}
+
+.field-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.word-count{font-size:12px;color:var(--muted)}
+
+.btn-generate{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:14px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;letter-spacing:.02em;transition:background .2s,opacity .2s}
+.btn-generate:hover:not(:disabled){background:var(--navy-light)}
+.btn-generate:disabled{opacity:.35;cursor:not-allowed}
+
+.right-bottom{margin-top:auto}
+.error-box{background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px 16px;font-size:13px;color:#B91C1C;display:none;margin-bottom:16px}
+
+.result-panel{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;display:none;align-items:center;justify-content:space-between;gap:16px}
+.result-info strong{font-size:15px;font-weight:500}
+.result-info p{font-size:12px;color:var(--muted);margin-top:3px}
+.btn-row{display:flex;gap:8px;flex-shrink:0}
+.btn-preview{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:7px;padding:9px 16px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;transition:background .15s}
+.btn-preview:hover{background:var(--cream)}
+.btn-pdf{background:var(--navy);color:#fff;border:none;border-radius:7px;padding:9px 18px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .2s}
+.btn-pdf:hover{background:var(--navy-light)}
+.btn-pdf svg{flex-shrink:0}
+
+.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,0.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── DOC VIEW ── */
+.doc-view{display:none;min-height:100vh;background:var(--cream)}
+.doc-bar{background:var(--navy);height:56px;padding:0 40px;display:flex;align-items:center;justify-content:space-between}
+.doc-bar-left{display:flex;align-items:center;gap:16px}
+.btn-back{background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.8);font-size:13px;font-family:'Inter',sans-serif;padding:6px 14px;border-radius:6px;cursor:pointer}
+.btn-back:hover{background:rgba(255,255,255,0.18)}
+.doc-bar-title{font-size:13px;color:rgba(255,255,255,0.45);letter-spacing:.02em}
+.btn-print{background:var(--accent);color:var(--navy);border:none;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;padding:7px 18px;border-radius:6px;cursor:pointer;letter-spacing:.02em}
+.btn-print:hover{opacity:.9}
+
+.doc-content{max-width:820px;margin:40px auto;padding:0 32px 80px}
+
+.doc-cover{background:var(--navy);border-radius:16px;padding:52px 52px 48px;margin-bottom:28px;position:relative;overflow:hidden}
+.doc-cover::before{content:'';position:absolute;top:-60px;right:-60px;width:240px;height:240px;border-radius:50%;background:rgba(201,168,76,0.06)}
+.doc-cover::after{content:'';position:absolute;bottom:-40px;left:40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.02)}
+.doc-cover-tag{font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:20px;position:relative}
+.doc-cover-title{font-family:'EB Garamond',Georgia,serif;font-size:42px;font-weight:400;color:#fff;line-height:1.1;margin-bottom:12px;position:relative}
+.doc-cover-date{font-size:13px;color:rgba(255,255,255,0.4);position:relative}
+.doc-cover-count{display:inline-flex;align-items:center;gap:6px;margin-top:24px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:99px;padding:6px 16px;font-size:12px;color:rgba(255,255,255,0.6);position:relative}
+.doc-cover-count span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+.grief-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:36px 40px;margin-bottom:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.grief-card-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px}
+.grief-number{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;margin-top:2px}
+.grief-title-text{font-family:'EB Garamond',Georgia,serif;font-size:22px;font-weight:600;line-height:1.35;color:var(--text)}
+.grief-divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+.section-label{font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px}
+.grief-facts{font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.85;color:#333}
+.fondement-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#444;line-height:1.55;margin-bottom:7px}
+.fondement-bullet{width:5px;height:5px;border-radius:50%;margin-top:5px;flex-shrink:0}
+
+@media print{
+  .doc-bar,.app-view{display:none!important}
+  .doc-view{display:block!important}
+  .doc-content{margin:20px auto;padding:0 20px 40px}
+  .doc-cover,.grief-card{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .grief-card{page-break-inside:avoid;break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-logo">
+    <div class="header-logo-mark">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="1" y="1" width="12" height="12" rx="1.5" stroke="#0F2544" stroke-width="1.2"/>
+        <path d="M3.5 4.5h7M3.5 7h7M3.5 9.5h4" stroke="#0F2544" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">Liste des griefs</div>
+      <div class="header-tag">Outil juridique</div>
+    </div>
+  </div>
+</header>
+
+<!-- APP VIEW -->
+<div class="app" id="appView">
+  <div class="app-left">
+    <div>
+      <div class="intro-heading">Générez votre document juridique en quelques secondes.</div>
+      <div class="intro-sub">Décrivez la situation du prospect. L'IA identifie, reformule et structure les griefs avec leurs fondements juridiques.</div>
+    </div>
+
+    <hr class="left-divider">
+
+    <div>
+      <div class="step-label">Étape 1 — Authentification</div>
+      <label class="field-label">Clé API Anthropic</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." oninput="updateBtn()">
+      <p class="hint">Stockée uniquement dans votre navigateur, jamais transmise ailleurs que vers l'API Anthropic.</p>
+    </div>
+  </div>
+
+  <div class="app-right">
+    <div>
+      <div class="step-label">Étape 2 — Contexte</div>
+      <label class="field-label-dark">Situation du prospect</label>
+      <textarea id="contextInput" placeholder="Décrivez librement la situation : type de contrat, nature du litige, faits reprochés, chronologie des événements, échanges passés..." oninput="updateWords()"></textarea>
+      <div class="field-footer">
+        <span class="word-count" id="wordCount">Champ vide</span>
+        <button class="btn-generate" id="generateBtn" onclick="generate()" disabled>Générer le document →</button>
+      </div>
+    </div>
+
+    <div class="right-bottom">
+      <div class="error-box" id="errorBox"></div>
+      <div class="result-panel" id="resultPanel">
+        <div class="result-info">
+          <strong id="resultTitle"></strong>
+          <p>Document prêt — aperçu ou téléchargement PDF</p>
+        </div>
+        <div class="btn-row">
+          <button class="btn-preview" onclick="showDoc()">Aperçu</button>
+          <button class="btn-pdf" onclick="showDoc();setTimeout(()=>window.print(),400)">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 8.5V11a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V8.5M7 2v7M4.5 6.5L7 9l2.5-2.5" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Télécharger PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DOC VIEW -->
+<div class="doc-view" id="docView">
+  <div class="doc-bar">
+    <div class="doc-bar-left">
+      <button class="btn-back" onclick="showApp()">← Retour</button>
+      <span class="doc-bar-title">Aperçu du document</span>
+    </div>
+    <button class="btn-print" onclick="window.print()">Télécharger PDF</button>
+  </div>
+  <div class="doc-content" id="docContent"></div>
+</div>
+
+<script>
+const PALETTE=[
+  {bg:'#EEF2FF',dot:'#4F46E5',num:'#4F46E5',numBg:'#EEF2FF'},
+  {bg:'#F0FDF4',dot:'#16A34A',num:'#16A34A',numBg:'#F0FDF4'},
+  {bg:'#FFF7ED',dot:'#EA580C',num:'#EA580C',numBg:'#FFF7ED'},
+  {bg:'#FDF4FF',dot:'#A21CAF',num:'#A21CAF',numBg:'#FDF4FF'},
+  {bg:'#F0F9FF',dot:'#0284C7',num:'#0284C7',numBg:'#F0F9FF'},
+  {bg:'#FFFBEB',dot:'#B45309',num:'#B45309',numBg:'#FFFBEB'},
+  {bg:'#FFF1F2',dot:'#BE123C',num:'#BE123C',numBg:'#FFF1F2'},
+];
+let griefs=[];
+const today=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+
+function updateWords(){
+  const v=document.getElementById('contextInput').value.trim();
+  document.getElementById('wordCount').textContent=v?v.split(/\s+/).length+' mots':'Champ vide';
+  updateBtn();
+}
+function updateBtn(){
+  const k=document.getElementById('apiKey').value.trim();
+  const c=document.getElementById('contextInput').value.trim();
+  document.getElementById('generateBtn').disabled=!(k&&c);
+}
+
+async function generate(){
+  const apiKey=document.getElementById('apiKey').value.trim();
+  const context=document.getElementById('contextInput').value.trim();
+  const btn=document.getElementById('generateBtn');
+  btn.innerHTML='<span class="spinner"></span>Génération en cours…';
+  btn.disabled=true;
+  document.getElementById('errorBox').style.display='none';
+  document.getElementById('resultPanel').style.display='none';
+
+  const prompt=`Tu es un juriste expert en droit français.
+
+Voici la situation décrite par un prospect :
+"${context}"
+
+RÈGLES ABSOLUES :
+- Utilise UNIQUEMENT les faits et éléments explicitement présents dans le texte.
+- Ne jamais inventer, supposer ou enrichir avec des informations extérieures.
+- "exemple" = reformulation juridique précise des faits cités uniquement, sans aucun ajout.
+- Si un détail n'est pas mentionné, ne le mentionne pas.
+
+Pour chaque grief identifié :
+1. "grief" : reformulation juridiquement précise, uniquement avec les éléments du contexte
+2. "exemple" : reformulation des faits exacts cités, sans rien ajouter
+3. "fondements" : articles de loi et textes juridiques applicables
+
+Réponds UNIQUEMENT en JSON valide sans markdown :
+{"griefs":[{"numero":1,"grief":"...","exemple":"...","fondements":["...","..."]}]}`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    let text=data.content.map(b=>b.text||'').join('');
+    let clean=text.replace(/```json|```/g,'').trim();
+    if(!clean.endsWith('}')){
+      const last=clean.lastIndexOf('}');clean=clean.substring(0,last+1);
+      const ob=(clean.match(/\[/g)||[]).length,cb=(clean.match(/\]/g)||[]).length;
+      for(let k=0;k<ob-cb;k++)clean+=']';
+      const oo=(clean.match(/\{/g)||[]).length,cc=(clean.match(/\}/g)||[]).length;
+      for(let k=0;k<oo-cc;k++)clean+='}';
+    }
+    griefs=JSON.parse(clean).griefs;
+    document.getElementById('resultTitle').textContent=griefs.length+' grief'+(griefs.length>1?'s':'')+' identifié'+(griefs.length>1?'s':'');
+    document.getElementById('resultPanel').style.display='flex';
+    renderDoc();
+  }catch(e){
+    document.getElementById('errorBox').textContent='Erreur : '+(e.message||'vérifiez votre clé API.');
+    document.getElementById('errorBox').style.display='block';
+  }
+  btn.innerHTML='Générer le document →';
+  updateBtn();
+}
+
+function renderDoc(){
+  const cards=griefs.map((g,i)=>{
+    const p=PALETTE[i%PALETTE.length];
+    return `<div class="grief-card" style="border-left:3px solid ${p.dot}">
+      <div class="grief-card-header">
+        <div class="grief-number" style="background:${p.numBg};color:${p.num}">${g.numero}</div>
+        <div class="grief-title-text">${g.grief}</div>
+      </div>
+      <hr class="grief-divider">
+      <div class="section-label" style="color:${p.dot}">Faits</div>
+      <div class="grief-facts">${g.exemple}</div>
+      <hr class="grief-divider">
+      <div class="section-label" style="color:${p.dot}">Fondements juridiques</div>
+      ${g.fondements.map(f=>`<div class="fondement-item"><span class="fondement-bullet" style="background:${p.dot}"></span>${f}</div>`).join('')}
+    </div>`;
+  }).join('');
+
+  document.getElementById('docContent').innerHTML=`
+    <div class="doc-cover">
+      <div class="doc-cover-tag">Document juridique confidentiel</div>
+      <div class="doc-cover-title">Liste des griefs</div>
+      <div class="doc-cover-date">Établie le ${today}</div>
+      <div class="doc-cover-count"><span></span>${griefs.length} grief${griefs.length>1?'s':''} identifié${griefs.length>1?'s':''}</div>
+    </div>
+    ${cards}`;
+}
+
+function showDoc(){
+  document.getElementById('appView').style.display='none';
+  document.getElementById('docView').style.display='block';
+}
+function showApp(){
+  document.getElementById('docView').style.display='none';
+  document.getElementById('appView').style.display='grid';
+}
+</script>
+</body>
+</html>
