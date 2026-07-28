@@ -68,25 +68,28 @@ volume + valeur. (Restreindre au stage *Waiting for vote* est essentiel : sinon
 
 → 💻 le plus de démos planifiées.
 
-### 5. Tâches en retard par AE — 👀 (HubSpot préféré, sinon Omni)
+### 5. Tâches en retard par AE — 👀 (HubSpot UNIQUEMENT)
 
-**Source préférée = HubSpot** (objet `TASK`, propriété booléenne `hs_task_is_overdue`) :
+⚠️ **Ne PAS utiliser Omni pour cette métrique.** Le topic `sales_crm__engagements`
+sous-compte gravement (filtres d'association qui écartent les tâches non liées à un
+deal copro FR) ou renvoie vide selon les filtres — il a raté ~92 tâches en retard
+de Nicolas Mysliwiak lors des tests. **La seule source fiable = HubSpot**, objet
+`TASK`, propriété booléenne `hs_task_is_overdue` (= échéance passée + non complétée) :
+
 > `SELECT hubspot_owner_id, COUNT(*) FROM TASK WHERE hs_task_is_overdue = true`
-> `GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 60`
-> puis résoudre les `hubspot_owner_id` en noms via `search_owners` (qui renvoie
-> aussi `isActive`).
+> `GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 80`
 
-**Fallback Omni** (topic `sales_crm__engagements`) si HubSpot indisponible :
-> « Count per task owner the number of open, not-completed tasks overdue as of {V1}
-> (due before {V1}), restricted to the Sales team on the Property Management
-> pipeline in France. Sort descending. Limit 25. »
+Puis résoudre les `hubspot_owner_id` en noms via `search_owners` (qui renvoie aussi
+`isActive`).
 
 **Scoping obligatoire → AE closers EN ACTIVITÉ.** Le classement brut contient des
-comptes non-closers avec des volumes anormaux (team leads, sales ops, comptes de
-rotation — p. ex. Jean-Baptiste Pluchet ~2 180, Matthieu Troesch ~93, un owner
-vide ~409). Ne garder QUE les AE closers actifs = ceux qui apparaissent comme
-`deal owner` dans les requêtes 1–4 (deals signés / AG / démos). Prendre le 1er de
-cette liste filtrée. _(Réf. semaine du 27/07 : Joseph Miraux = 43, 1er closer actif.)_
+comptes non-AE à volumes anormaux (team leads, sales ops, CSM, compta, comptes de
+rotation). Ne garder QUE les AE closers actifs (`isActive = true` ET présents comme
+`deal owner` dans les requêtes 1–4). Prendre le 1er de cette liste filtrée.
+_(Réf. semaine du 27/07 : Nicolas Mysliwiak = 92.)_
+
+> Nécessite le connecteur **HubSpot autorisé**. S'il est indisponible, laisser
+> `[à compléter — HubSpot requis]` plutôt qu'un chiffre Omni (faux).
 
 ## Routine — comment l'installer
 
@@ -130,15 +133,14 @@ Modèle Omni : modelId 225379a7-7597-48e1-a675-2777f3d42275.
    d. "For the Property Management pipeline, buildings in France, count per sales
       rep the number of demos scheduled with a demo date between {V1} and {V2}.
       Sort descending."
-   e. Tâches en retard (👀). PRÉFÉRER HubSpot si le connecteur est autorisé :
+   e. Tâches en retard (👀). HubSpot UNIQUEMENT (ne PAS utiliser Omni, qui
+      sous-compte) :
       SELECT hubspot_owner_id, COUNT(*) FROM TASK WHERE hs_task_is_overdue = true
-      GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 60 ; puis noms via
-      search_owners. Sinon fallback Omni topic sales_crm__engagements : "Count per
-      task owner the number of open not-completed tasks overdue as of {V1} (due
-      before {V1}), restricted to the Sales team on the Property Management pipeline
-      in France. Sort descending. Limit 25." Dans TOUS les cas : ne garder que les
-      AE closers EN ACTIVITÉ = ceux présents comme deal owner dans (a)-(d) ; écarter
-      les non-closers à volumes anormaux (team leads, ops, comptes de rotation).
+      GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 80 ; puis noms +
+      isActive via search_owners. Ne garder que les AE closers EN ACTIVITÉ
+      (isActive = true ET présents comme deal owner dans (a)-(d)) ; écarter les
+      non-AE à volumes anormaux (team leads, ops, CSM, compta, rotation). Prendre le
+      1er. Si HubSpot indisponible : "[à compléter — HubSpot requis]" (jamais Omni).
 
 3) Calculs : totaux deals/ARR (a) ; total AG (b) + total ARR (somme b) ;
    AE semaine passée = top ARR (a) ; AE semaine à venir = top ARR d'AG (b) ;
