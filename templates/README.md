@@ -74,8 +74,63 @@ Alimente : « la plus grosse AG » + table « Top des AG à surveiller ».
 | Montant | `amount_in_home_currency` / `amount_tax_excluded` |
 | Commercial | `hubspot_owner_id` |
 
-## Routine
+## Routine — comment l'installer
 
-Déclencheur planifié (Routine CCR) : tous les lundis ~08:00 Paris.
-Il crée un **brouillon** Slack dans `#team_sales_fr` — jamais d'envoi
+⚠️ **Important** : une Routine créée par un agent n'embarque pas les connecteurs
+(Slack / Omni). Les sessions déclenchées tourneraient donc sans accès aux données
+ni à Slack. Il faut créer la Routine **depuis l'UI Routines de claude.ai**, où
+tes connecteurs sont automatiquement rattachés aux sessions déclenchées.
+
+**Étapes :**
+1. Sur claude.ai → **Routines** (ou Paramètres → Routines / Tâches planifiées).
+2. Nouvelle routine, planification **tous les lundis vers 08:00 (Europe/Paris)**.
+   Note : si le champ est en UTC, mettre **06:05 UTC** (= 08:05 été / 07:05 hiver).
+3. Vérifier que les connecteurs **Slack** et **Omni Analytics** sont activés pour
+   la routine.
+4. Coller le prompt ci-dessous.
+
+### Prompt à coller
+
+```
+Session fraîche déclenchée un LUNDI matin. Objectif : produire le "Récap Sales
+hebdomadaire" et le déposer en BROUILLON Slack dans #team_sales_fr
+(channel_id CCGP59ZJA). NE JAMAIS ENVOYER — uniquement un brouillon via
+slack_send_message_draft. Edgar (U02QU1SPRHR) relit, complète le "Focus" et envoie.
+
+Périmètre : pipeline Property Management (copro), FRANCE uniquement.
+
+1) Dates (aujourd'hui = lundi J) :
+   Semaine passée : P1 = date -d '-7 days', P2 = date -d '-1 day'
+   Semaine à venir : V1 = aujourd'hui, V2 = date -d '+6 days'  (format YYYY-MM-DD, + affichage JJ/MM)
+
+2) Omni Analytics (getData ; modelId 225379a7-7597-48e1-a675-2777f3d42275 ;
+   topic sales_deals_property_management) :
+   a. "For the Property Management pipeline, buildings in France ONLY, list per
+      sales rep (deal owner) the number of deals signed (won) and the total ARR
+      closed, for deals signed (won) between {P1} and {P2}. Sort by total ARR
+      closed descending."
+   b. "For the Property Management pipeline, buildings in France, considering ONLY
+      deals currently in the Waiting for vote deal stage, list per sales rep the
+      number of deals whose general assembly date (date_d_ag) falls between {V1}
+      and {V2}, and the total number of main units (nombre_de_lots). Sort by
+      number of deals descending."
+   Rdv physiques : filtre ag_type='Physique' PAS fiable via Omni → laisser
+   [à compléter], ou via HubSpot si dispo :
+   SELECT hubspot_owner_id, COUNT(*) FROM DEAL WHERE pipeline='default'
+   AND ag_type='Physique' AND date_d_ag BETWEEN '{V1}' AND '{V2}'
+   GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC   (puis noms via search_owners)
+
+3) Calculs : totaux deals/ARR (a) ; totaux AG/lots (b) ; top ARR, top volume (a) ;
+   "en a le plus" = top nb AG ; top volume de lots (b).
+
+4) Rédige en français, format Slack (emojis :shortcode:, gras *…*, sans tableaux
+   markdown), selon templates/recap-sales-hebdo.md.
+
+5) slack_send_message_draft(channel_id="CCGP59ZJA", message=<récap>). Si
+   draft_already_exists : le signaler, ne pas forcer.
+
+Règle : si Omni ou Slack indisponible, le signaler — ne JAMAIS inventer de chiffres.
+```
+
+La routine crée un **brouillon** Slack dans `#team_sales_fr` — jamais d'envoi
 automatique. Edgar relit, complète le « Focus de la semaine », ajuste et envoie.
