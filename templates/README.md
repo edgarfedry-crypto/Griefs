@@ -68,18 +68,25 @@ volume + valeur. (Restreindre au stage *Waiting for vote* est essentiel : sinon
 
 → 💻 le plus de démos planifiées.
 
-### 5. Tâches en retard par AE (topic `sales_crm__engagements`)
-> « Count per task owner the number of open, not-completed tasks that are overdue
-> as of {V1} (due date before {V1}, not completed), restricted to owners on the
-> Sales team working the Property Management pipeline in France. Sort descending.
-> Limit 10. »
+### 5. Tâches en retard par AE — 👀 (HubSpot préféré, sinon Omni)
 
-→ 👀 l'AE avec le plus de tâches en retard.
-⚠️ **À fiabiliser** : même filtré `engagement_team = Sales`, le classement inclut
-des comptes non-closers (team leads, ops, rotations avec des volumes anormaux —
-p. ex. > 1 000 tâches). Il faut écarter ces outliers et ne garder que les AE
-closers (ceux qui apparaissent dans les requêtes 1–4). Idéalement, restreindre à
-la liste nominative de l'équipe AE FR.
+**Source préférée = HubSpot** (objet `TASK`, propriété booléenne `hs_task_is_overdue`) :
+> `SELECT hubspot_owner_id, COUNT(*) FROM TASK WHERE hs_task_is_overdue = true`
+> `GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 60`
+> puis résoudre les `hubspot_owner_id` en noms via `search_owners` (qui renvoie
+> aussi `isActive`).
+
+**Fallback Omni** (topic `sales_crm__engagements`) si HubSpot indisponible :
+> « Count per task owner the number of open, not-completed tasks overdue as of {V1}
+> (due before {V1}), restricted to the Sales team on the Property Management
+> pipeline in France. Sort descending. Limit 25. »
+
+**Scoping obligatoire → AE closers EN ACTIVITÉ.** Le classement brut contient des
+comptes non-closers avec des volumes anormaux (team leads, sales ops, comptes de
+rotation — p. ex. Jean-Baptiste Pluchet ~2 180, Matthieu Troesch ~93, un owner
+vide ~409). Ne garder QUE les AE closers actifs = ceux qui apparaissent comme
+`deal owner` dans les requêtes 1–4 (deals signés / AG / démos). Prendre le 1er de
+cette liste filtrée. _(Réf. semaine du 27/07 : Joseph Miraux = 43, 1er closer actif.)_
 
 ## Routine — comment l'installer
 
@@ -123,11 +130,15 @@ Modèle Omni : modelId 225379a7-7597-48e1-a675-2777f3d42275.
    d. "For the Property Management pipeline, buildings in France, count per sales
       rep the number of demos scheduled with a demo date between {V1} and {V2}.
       Sort descending."
-   e. Topic sales_crm__engagements : "Count per task owner the number of open,
-      not-completed tasks overdue as of {V1} (due before {V1}), restricted to the
-      Sales team on the Property Management pipeline in France. Sort descending.
-      Limit 10." → ÉCARTER les outliers non-closers (>1000 tâches, team leads/ops) ;
-      ne garder que les AE présents dans (a)-(d).
+   e. Tâches en retard (👀). PRÉFÉRER HubSpot si le connecteur est autorisé :
+      SELECT hubspot_owner_id, COUNT(*) FROM TASK WHERE hs_task_is_overdue = true
+      GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 60 ; puis noms via
+      search_owners. Sinon fallback Omni topic sales_crm__engagements : "Count per
+      task owner the number of open not-completed tasks overdue as of {V1} (due
+      before {V1}), restricted to the Sales team on the Property Management pipeline
+      in France. Sort descending. Limit 25." Dans TOUS les cas : ne garder que les
+      AE closers EN ACTIVITÉ = ceux présents comme deal owner dans (a)-(d) ; écarter
+      les non-closers à volumes anormaux (team leads, ops, comptes de rotation).
 
 3) Calculs : totaux deals/ARR (a) ; total AG (b) + total ARR (somme b) ;
    AE semaine passée = top ARR (a) ; AE semaine à venir = top ARR d'AG (b) ;
@@ -155,3 +166,4 @@ Règle : si Omni/Slack indisponible, le signaler — ne JAMAIS inventer de chiff
 | Taille d'AG | `nombre_de_lots` |
 | Montant / ARR | `amount_in_home_currency` / `amount_tax_excluded` |
 | Commercial | `hubspot_owner_id` (→ noms via `search_owners`) |
+| Tâche en retard | objet `TASK`, `hs_task_is_overdue = true` |
