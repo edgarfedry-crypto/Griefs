@@ -28,144 +28,145 @@ d'AG en volume ET en valeur), puis :
 - **Semaine passée** = lundi J-7 → dimanche J-1
 - **Semaine à venir** = lundi J → dimanche J+6
 
-## Sources de données — Omni Analytics
+Les filtres de date HubSpot (`closedate`, `date_d_ag`, `demo_date`) attendent des
+**millisecondes epoch UTC** — convertir les bornes de dates avant la requête.
 
-Modèle « Matera » (`modelId 225379a7-7597-48e1-a675-2777f3d42275`).
-Omni est privilégié à HubSpot : modèle sémantique métier + reste dispo quand le
-token HubSpot expire.
+## Source de données — HubSpot (API Search)
 
-### 1. Semaine passée — deals signés + ARR par AE (topic `sales_deals_property_management`)
-> « For the Property Management pipeline, buildings in France ONLY, list per
-> sales rep (deal owner) the number of deals signed (won) and the total ARR
-> closed, for deals signed (won) between {P1} and {P2}. Sort by total ARR
-> closed descending. »
+⚠️ **Omni Analytics n'est plus utilisable** : les crédits IA du modèle sont épuisés
+(`AI credit limit reached`). Tout le récap passe désormais **100 % par HubSpot**.
 
-→ total deals, total ARR, 🏆 AE de la semaine (top ARR), podium, plus gros volume.
+⚠️ **Utiliser `search_crm_objects` (API Search), PAS `query_crm_data`.** L'endpoint
+SQL renvoie `403 (after trying upscoping)` — scope manquant sur le connecteur. L'API
+Search fonctionne avec le scope accordé ; on agrège côté client (pas de `GROUP BY`,
+on lit le champ `total` ou on somme les `results`).
 
-### 2. AG à venir — volume + valeur par AE (topic `sales_deals_property_management`)
-> « For the Property Management pipeline, buildings in France, considering ONLY
-> deals that entered the Waiting for vote stage and have not yet exited it, list
-> per sales rep the number of deals AND the total ARR (sum of deal amount) whose
-> general assembly date (date_d_ag) falls between {V1} and {V2}. Sort by total
-> ARR descending. »
+### Filtres communs à toutes les requêtes DEAL
 
-→ total AG, total ARR en jeu, 🌟 AE de la semaine à venir, "le plus d'AG"
-volume + valeur. (Restreindre au stage *Waiting for vote* est essentiel : sinon
-`date_d_ag` remonte des centaines de deals avec des dates par défaut.)
+| Filtre | Valeur |
+|---|---|
+| Pipeline copro | `pipeline = 'default'` |
+| **France uniquement** | `market = 'fr'` (⚠️ le pipeline mélange FR et DE — EXCLURE `market='de'`) |
+| Deal signé | `dealstage = 'closedwon'` |
+| Stage AG imminente | `dealstage = 'contractsent'` (Waiting for vote) |
+| Montant / ARR | `amount_in_home_currency` (+ `deal_currency_code`) |
+| Date d'AG | `date_d_ag` |
+| Date de démo | `demo_date` |
+| Commercial | `hubspot_owner_id` (→ noms + `isActive` via `search_owners`) |
 
-### 3. La plus grosse AG en ARR (topic `sales_deals_property_management`)
-> « … considering ONLY deals that entered the Waiting for vote stage and have not
-> yet exited it, list individual deals whose general assembly date is between
-> {V1} and {V2}. Show deal name, owner name, and ARR (deal amount). Sort by ARR
-> descending. Limit 5. »
+### 1. Semaine passée — deals signés + ARR par AE
+`DEAL` où `pipeline='default'` ET `market='fr'` ET `dealstage='closedwon'` ET
+`closedate` ∈ [lundi J-7, lundi J[. Agréger par `hubspot_owner_id` : nb deals + somme
+`amount_in_home_currency`.
 
-→ 🏔️ la plus grosse AG (AE + copropriété + ARR).
+→ total deals, total ARR, 🏆 AE de la semaine (top ARR), podium ARR, plus gros volume.
 
-### 4. Démos planifiées par AE (topic `sales_deals_property_management`)
-> « For the Property Management pipeline, buildings in France, count per sales rep
-> the number of demos scheduled with a demo date between {V1} and {V2}. Sort
-> descending. » _(Omni mappe sur `next_scheduled_demo_at`.)_
+⚠️ **Deals sans `hubspot_owner_id`** : on en voit apparaître par lots (timestamps de
+création/signature identiques → import en masse). Les **exclure** du total et les
+**mentionner à part** — ils ne sont attribuables à aucun AE.
 
-→ 💻 le plus de démos planifiées.
+### 2. AG à venir — volume + valeur par AE
+`DEAL` où `pipeline='default'` ET `market='fr'` ET `dealstage='contractsent'` ET
+`date_d_ag` ∈ [lundi J, lundi J+7[. Agréger par owner : nb AG + somme ARR.
 
-### 5. Tâches en retard par AE — 👀 (HubSpot UNIQUEMENT)
+→ total AG, total ARR en jeu, 🌟 AE de la semaine à venir (le plus d'AG en volume ET
+valeur), classements volume et valeur.
 
-⚠️ **Ne PAS utiliser Omni pour cette métrique.** Le topic `sales_crm__engagements`
-sous-compte gravement (filtres d'association qui écartent les tâches non liées à un
-deal copro FR) ou renvoie vide selon les filtres — il a raté ~92 tâches en retard
-de Nicolas Mysliwiak lors des tests. **La seule source fiable = HubSpot**, objet
-`TASK`, propriété booléenne `hs_task_is_overdue` (= échéance passée + non complétée) :
+### 3. La plus grosse AG en ARR
+Même filtre que (2), mais lister les deals individuels (deal name, owner, ARR), trier
+par ARR décroissant.
 
-> `SELECT hubspot_owner_id, COUNT(*) FROM TASK WHERE hs_task_is_overdue = true`
-> `GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 80`
+→ 🏔️ la plus grosse AG (AE + copropriété + **ARR en €**, PAS le nb de lots).
 
-Puis résoudre les `hubspot_owner_id` en noms via `search_owners` (qui renvoie aussi
-`isActive`).
+### 4. Démos planifiées par AE
+`DEAL` où `market='fr'` ET `demo_date` ∈ [lundi J, lundi J+7[.
 
-**Scoping obligatoire → AE closers EN ACTIVITÉ.** Le classement brut contient des
-comptes non-AE à volumes anormaux (team leads, sales ops, CSM, compta, comptes de
-rotation). Ne garder QUE les AE closers actifs (`isActive = true` ET présents comme
-`deal owner` dans les requêtes 1–4). Prendre le 1er de cette liste filtrée.
-_(Réf. semaine du 27/07 : Nicolas Mysliwiak = 92.)_
+⚠️ En pratique le champ `demo_date` est **souvent non alimenté** pour les démos à venir
+(0 deal daté après le 01/08 dans tout le CRM lors des tests). Si 0 résultat → laisser
+`💻 à compléter`. À terme, si la donnée démo vit ailleurs (objet `MEETING_EVENT`),
+adapter la source.
 
-> Nécessite le connecteur **HubSpot autorisé**. S'il est indisponible, laisser
-> `[à compléter — HubSpot requis]` plutôt qu'un chiffre Omni (faux).
+### 5. Tâches en retard par AE — 👀
+`TASK` où `hs_task_is_overdue = true`.
 
-## Routine — comment l'installer
+⚠️ **Le total brut est énorme (~97 000) et pollué par des tâches système** (« 🚨 Ticket
+Call Center… », alertes data-quality, etc.). Ne PAS parcourir la masse. **Compter par
+AE** : pour chaque AE, requête `hs_task_is_overdue=true` ET `hubspot_owner_id=<id>`
+(`limit 1`) et lire le champ `total`.
 
-⚠️ **Important** : une Routine créée par un agent n'embarque pas les connecteurs
-(Slack / Omni). Les sessions déclenchées tourneraient sans accès aux données ni à
-Slack. Il faut créer la Routine **depuis l'UI Routines de claude.ai**, où les
-connecteurs sont rattachés aux sessions déclenchées.
+**Scope obligatoire → AE closers EN ACTIVITÉ.** Boucler sur les owners apparus comme
+`deal owner` en (1)/(2), + Nicolas Mysliwiak (`645804627`), en gardant `isActive=true`
+(via `search_owners`). Prendre le plus haut total.
 
-**Étapes :**
-1. claude.ai → **Routines** (Paramètres → Routines / Tâches planifiées).
-2. Planification **tous les lundis vers 08:00 (Europe/Paris)**. Si le champ est en
-   UTC : **06:05 UTC** (= 08:05 été / 07:05 hiver).
-3. Activer les connecteurs **Slack** et **Omni Analytics**.
-4. Coller le prompt ci-dessous.
+> Réf. 10/08 : Erwan Montfort 62, Nicolas Mysliwiak 59, Jérôme Hantzberg 35,
+> Benjamin Dechelette 25, Mattéo Cornée 16. (Les chiffres bougent chaque semaine.)
 
-### Prompt à coller
+## Routine — état
+
+✅ **La routine est active** : `Récap Sales hebdo — lundi matin`, cron `5 6 * * 1`
+(lundi 06:05 UTC = **08:05 Paris l'été / 07:05 l'hiver**). Elle est **rattachée à la
+session** qui porte les connecteurs Slack + HubSpot (self-bind) : à chaque
+déclenchement, la session se réveille, les connecteurs se reconnectent, et le récap se
+génère puis se dépose en brouillon.
+
+**Fragilité connue** : si l'autorisation **HubSpot** expire entre deux lundis, le run
+ne peut pas sortir les chiffres. Dans ce cas la routine **prévient Edgar de reconnecter
+HubSpot** (claude.ai → Connecteurs) et **n'invente aucun chiffre**.
+
+> ⚠️ Une routine créée par un agent ne peut pas embarquer de nouveaux connecteurs pour
+> cette org (limitation côté plateforme). C'est pour ça qu'elle est rattachée à une
+> session existante déjà connectée, plutôt que de lancer une session neuve. Si un jour
+> la session n'est plus résumable, recréer la routine depuis une session connectée (ou
+> depuis l'UI Routines de claude.ai avec Slack + HubSpot activés) avec le prompt
+> ci-dessous.
+
+### Prompt de la routine (référence / à recoller si besoin)
 
 ```
-Session fraîche déclenchée un LUNDI matin. Objectif : produire le "Récap Sales
-hebdomadaire" et le déposer en BROUILLON Slack dans #team_sales_fr
-(channel_id CCGP59ZJA). NE JAMAIS ENVOYER — uniquement un brouillon via
-slack_send_message_draft. Edgar (U02QU1SPRHR) relit, complète le "Focus" et envoie.
+⏰ RÉCAP SALES HEBDO — déclenchement automatique du lundi matin.
 
-Périmètre : pipeline Property Management (copro), FRANCE uniquement.
-Modèle Omni : modelId 225379a7-7597-48e1-a675-2777f3d42275.
+Génère le Récap Sales de la semaine et dépose-le en BROUILLON Slack dans
+#team_sales_fr (channel_id CCGP59ZJA) via slack_send_message_draft. NE JAMAIS
+ENVOYER. Edgar (U02QU1SPRHR) relit, complète le "Focus" et envoie.
 
-1) Dates (aujourd'hui = lundi J) : P1 = date -d '-7 days', P2 = date -d '-1 day',
-   V1 = aujourd'hui, V2 = date -d '+6 days' (YYYY-MM-DD + affichage JJ/MM).
+Périmètre : pipeline Property Management copro (pipeline='default'), FRANCE uniquement
+(market='fr' ; EXCLURE 'de'). Source : HubSpot via search_crm_objects (PAS
+query_crm_data → 403). Omni indisponible (crédits épuisés). Ne jamais inventer.
 
-2) Omni getData (topic sales_deals_property_management) :
-   a. "For the Property Management pipeline, buildings in France ONLY, list per
-      sales rep the number of deals signed (won) and total ARR closed, for deals
-      signed between {P1} and {P2}. Sort by total ARR descending."
-   b. "For the Property Management pipeline, buildings in France, considering ONLY
-      deals that entered the Waiting for vote stage and have not yet exited it,
-      list per sales rep the number of deals AND the total ARR (sum of deal amount)
-      whose general assembly date (date_d_ag) is between {V1} and {V2}. Sort by
-      total ARR descending."
-   c. Même filtre que (b) mais deals individuels : "…list individual deals with
-      deal name, owner name, and ARR (deal amount). Sort by ARR descending. Limit 5."
-   d. "For the Property Management pipeline, buildings in France, count per sales
-      rep the number of demos scheduled with a demo date between {V1} and {V2}.
-      Sort descending."
-   e. Tâches en retard (👀). HubSpot UNIQUEMENT (ne PAS utiliser Omni, qui
-      sous-compte) :
-      SELECT hubspot_owner_id, COUNT(*) FROM TASK WHERE hs_task_is_overdue = true
-      GROUP BY hubspot_owner_id ORDER BY COUNT(*) DESC LIMIT 80 ; puis noms +
-      isActive via search_owners. Ne garder que les AE closers EN ACTIVITÉ
-      (isActive = true ET présents comme deal owner dans (a)-(d)) ; écarter les
-      non-AE à volumes anormaux (team leads, ops, CSM, compta, rotation). Prendre le
-      1er. Si HubSpot indisponible : "[à compléter — HubSpot requis]" (jamais Omni).
+Dates (lundi J) : passée = J-7→J-1 ; à venir = J→J+6. Bornes en millisecondes epoch
+UTC pour les filtres de date.
 
-3) Calculs : totaux deals/ARR (a) ; total AG (b) + total ARR (somme b) ;
-   AE semaine passée = top ARR (a) ; AE semaine à venir = top ARR d'AG (b) ;
-   plus d'AG volume (b, tri count) et valeur (b, tri ARR) ; plus grosse AG (c) ;
-   plus de démos (d) ; plus de tâches en retard (e, nettoyé).
+1) Semaine passée : DEAL pipeline='default', market='fr', dealstage='closedwon',
+   closedate ∈ [J-7, J[. Par owner : nb deals + ARR (amount_in_home_currency). Total
+   deals + ARR. 🏆 AE = top ARR. Podium ARR. Plus gros volume. Deals sans
+   hubspot_owner_id : exclure + mentionner à part.
+2) AG à venir : DEAL pipeline='default', market='fr', dealstage='contractsent',
+   date_d_ag ∈ [J, J+7[. Par owner : nb AG + ARR. Total AG + ARR. 🌟 AE = le plus d'AG
+   en volume ET valeur. Classement volume + valeur. 🏔️ plus grosse AG en ARR (montant,
+   pas lots).
+3) 💻 Démos : DEAL market='fr', demo_date ∈ [J, J+7[. Si 0 → "à compléter".
+4) 👀 Tâches en retard : TASK hs_task_is_overdue=true. Le total brut (~97k) inclut des
+   tâches système → compter PAR AE (filtre hubspot_owner_id=<id>, lire 'total').
+   Boucler sur les AE closers actifs (owners de (1)/(2) + Nicolas Mysliwiak 645804627,
+   isActive=true). Prendre le max.
 
-4) Rédige en français, format Slack (emojis :shortcode:, gras *…*, sans tableaux
-   markdown), selon templates/recap-sales-hebdo.md — élire l'AE en tête de chaque
-   section, avant les détails.
-
-5) slack_send_message_draft(channel_id="CCGP59ZJA", message=<récap>). Si
-   draft_already_exists : le signaler, ne pas forcer.
-
-Règle : si Omni/Slack indisponible, le signaler — ne JAMAIS inventer de chiffres.
+Noms via search_owners. Rédiger en français, format Slack, selon
+templates/recap-sales-hebdo.md, AE élu en tête de chaque section.
+slack_send_message_draft(channel_id='CCGP59ZJA', message=<récap>). Si
+draft_already_exists : signaler, ne pas forcer. Si HubSpot 403/token expiré : prévenir
+Edgar de ré-autoriser HubSpot, ne pas inventer de chiffres.
 ```
 
-## Référence HubSpot (si requête directe nécessaire)
+## Référence HubSpot
 
 | Concept | Propriété / valeur |
 |---|---|
 | Pipeline copro | `pipeline = 'default'` (Property Management) |
+| France | `market = 'fr'` (DE = `'de'`, à exclure) |
 | Deal signé | `dealstage = 'closedwon'` |
 | Stage AG imminente | `dealstage = 'contractsent'` (Waiting for vote) |
 | Date d'AG | `date_d_ag` |
-| Taille d'AG | `nombre_de_lots` |
-| Montant / ARR | `amount_in_home_currency` / `amount_tax_excluded` |
+| Date de démo | `demo_date` |
+| Montant / ARR | `amount_in_home_currency` (+ `deal_currency_code`) |
 | Commercial | `hubspot_owner_id` (→ noms via `search_owners`) |
 | Tâche en retard | objet `TASK`, `hs_task_is_overdue = true` |
