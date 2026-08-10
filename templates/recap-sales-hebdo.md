@@ -16,7 +16,6 @@ _copro France · chiffres de la semaine passée · AG de la semaine à venir_
 :star2: *AE DE LA SEMAINE À VENIR : [AE]* — [X] AG pour [XX XXX] € d'ARR à jouer
 
 *AG — semaine à venir ([JJ/MM] → [JJ/MM])*
-_(deals en « attente de vote » — AG imminente)_
 • *[X] AG* à jouer, soit *[XXX XXX] € d'ARR* en jeu :office:
 • :first_place_medal: Le plus d'AG — en volume : [AE] ([n]) · [AE] ([n]) · [AE] ([n])
 • :moneybag: Le plus d'AG — en valeur : [AE] ([k€]) · [AE] ([k€]) · [AE] ([k€])
