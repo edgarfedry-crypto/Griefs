@@ -78,13 +78,23 @@ par ARR décroissant.
 
 → 🏔️ la plus grosse AG (AE + copropriété + **ARR en €**, PAS le nb de lots).
 
-### 4. Démos planifiées par AE
-`DEAL` où `market='fr'` ET `demo_date` ∈ [lundi J, lundi J+7[.
+### 4. Démos planifiées par AE — via `MEETING_EVENT`
+⚠️ **Ne PAS utiliser `demo_date` sur DEAL** : le champ est quasi jamais alimenté pour
+les démos à venir (0 deal daté après le 01/08 dans tout le CRM lors des tests). Les
+démos vivent dans l'objet **`MEETING_EVENT`**.
 
-⚠️ En pratique le champ `demo_date` est **souvent non alimenté** pour les démos à venir
-(0 deal daté après le 01/08 dans tout le CRM lors des tests). Si 0 résultat → laisser
-`💻 à compléter`. À terme, si la donnée démo vit ailleurs (objet `MEETING_EVENT`),
-adapter la source.
+`MEETING_EVENT` où `hs_meeting_start_time` ∈ [lundi J, lundi J+7[ ET
+`hs_meeting_title` CONTAINS_TOKEN `Découvrez` (le meeting démo FR s'intitule
+**« Découvrez Matera avec [AE] »** ; l'Allemagne = « Matera entdecken … », exclue de
+fait). Exclure `hs_meeting_outcome` = `CANCELED` et `NO_SHOW`.
+
+⚠️ **Attribution : par le prénom dans le TITRE, PAS par `hubspot_owner_id`.** Le
+propriétaire du meeting est souvent le SDR qui book, pas l'AE qui présente. L'AE réel
+est nommé dans le titre après « avec » (ex. « Découvrez Matera avec Jérôme »). Extraire
+ce prénom (ignorer « notre expert », « ! ») et le rapprocher du roster AE, puis compter
+par AE. → 💻 le plus de démos planifiées (top 3).
+
+> Réf. 10→16/08 : Joseph Nys ≈ 16, Jérôme Hantzberg ≈ 8, Erwan Montfort ≈ 5.
 
 ### 5. Tâches en retard par AE — 👀
 `TASK` où `hs_task_is_overdue = true`.
@@ -144,7 +154,10 @@ UTC pour les filtres de date.
    date_d_ag ∈ [J, J+7[. Par owner : nb AG + ARR. Total AG + ARR. 🌟 AE = le plus d'AG
    en volume ET valeur. Classement volume + valeur. 🏔️ plus grosse AG en ARR (montant,
    pas lots).
-3) 💻 Démos : DEAL market='fr', demo_date ∈ [J, J+7[. Si 0 → "à compléter".
+3) 💻 Démos : MEETING_EVENT, hs_meeting_start_time ∈ [J, J+7[, hs_meeting_title
+   CONTAINS_TOKEN 'Découvrez' (démo FR "Découvrez Matera avec [AE]" ; DE "Matera
+   entdecken" exclu). Exclure hs_meeting_outcome CANCELED/NO_SHOW. Compter par le
+   PRÉNOM dans le titre (après "avec"), PAS par hubspot_owner_id (souvent le SDR). Top 3.
 4) 👀 Tâches en retard : TASK hs_task_is_overdue=true. Le total brut (~97k) inclut des
    tâches système → compter PAR AE (filtre hubspot_owner_id=<id>, lire 'total').
    Boucler sur les AE closers actifs (owners de (1)/(2) + Nicolas Mysliwiak 645804627,
